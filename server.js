@@ -37,6 +37,52 @@ function handleError(err, res) {
   if (res) res.status(500).send('Sorry, something went wrong');
 }
 
+
+
+function getDataFromDB (sqlInfo) {
+  let condition = '';
+  let values = [];
+  if (sqlInfo.searchQuery) {
+    condition = 'search_query';
+    values = [sqlInfo.searchQuery];
+  }
+  else {
+    condition = 'location_id';
+    values = [sqlInfo.id];
+  }
+  let sql = `SELECT * FROM ${sqlInfo.endpoint}s WHERE ${condition} = $1;`;
+  try {
+    return client.query(sql , values)
+  }
+  catch 
+    (err){handleError(err);}
+  
+}
+
+function saveToDB(sqlInfo) {
+  //create placeholders
+  let params = [];
+  for (let i = 1; i <= sqlInfo.values.length; i++){
+    params.push(`$${i}`);
+  }
+  let sqlParams = params.join();
+  let sql = '';
+  if (sqlInfo.searchQuery) {
+    //location
+    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams}) RETURNING ID;`;
+  }
+  else {
+    // all other endspoints
+    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams});`;
+  }
+  //save the data
+  try {
+    return client.query(sql, sqlInfo.values);
+  }
+  catch 
+    (err){handleError(err)};
+}
+
 //Helper Functions
 //Dealing With Geo Data
 
