@@ -1,0 +1,26 @@
+{
+  "name": "lab8withaustin",
+  "version": "1.0.0",
+  "description": "sql with austin",
+  "main": "server.js",
+  "scripts": {
+    "test": "testing"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naughtnowwhen/lab8WithAustin.git"
+  },
+  "author": "Austin and me",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/naughtnowwhen/lab8WithAustin/issues"
+  },
+  "homepage": "https://github.com/naughtnowwhen/lab8WithAustin#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^7.0.0",
+    "express": "^4.16.4",
+    "pg": "^7.10.0",
+    "superagent": "^5.0.3"
+  }
+}
