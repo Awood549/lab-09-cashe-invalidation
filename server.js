@@ -29,7 +29,7 @@ app.get('/location', searchToLatLong)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
 
-app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`)); 
+app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
 
 // ERROR HANDLER
 function handleError(err, res) {
@@ -54,9 +54,9 @@ function getDataFromDB (sqlInfo) {
   try {
     return client.query(sql , values)
   }
-  catch 
-    (err){handleError(err);}
-  
+  catch
+  (err){handleError(err);}
+
 }
 
 function saveToDB(sqlInfo) {
@@ -69,7 +69,7 @@ function saveToDB(sqlInfo) {
   let sql = '';
   if (sqlInfo.searchQuery) {
     //location
-    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams}) RETURNING ID;`;
+    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams}) RETURNING ID;`; 
   }
   else {
     // all other endspoints
@@ -79,23 +79,47 @@ function saveToDB(sqlInfo) {
   try {
     return client.query(sql, sqlInfo.values);
   }
-  catch 
-    (err){handleError(err)};
+  catch
+  (err){handleError(err)}
+}
+
+function checkTimeOuts(sqlInfo,sqlData){//Follow the trail, where does sqlData come from?
+  const timeouts = {
+    weather: 15 * 1000, //15 seconds
+    yelp: 24 * 1000 * 60 * 60, //24 hours
+    movie: 30 * 1000* 60 * 60 * 24, //30 days
+    event: 6 * 1000 * 60 * 60, //6 hours
+    trail: 7 * 1000 * 60 * 60 * 24 //7 days
+  };
+
+  if(sqlData.rowCount > 0){
+    let ageOfResults = (Date.now() - sqlData.rows[0].created_at);
+
+    //for debugging only
+    console.log(sqlInfo.endpoint, ' AGE:', ageOfResults);
+    console.log(sqlInfo.endpoint, ' Timeout:', timeouts[sqlInfo.endpoint]);
+
+    if(ageOfResults > timeouts[sqlInfo.endpoint]) {
+      let sql = ` DELETE FROM ${sqlInfo.endpoint}s WHERE location_id=$1;`;
+      let values = [sqlInfo];
+      client.query(sql,values)
+        .then(() => { return null; })
+        .catch(err => handleError(err));
+    }
+    else{return sqlData; }
+  }
 }
 
 //Helper Functions
 //Dealing With Geo Data
 
 function searchToLatLong(request, response) {
-  let query = request.query.data;
-
-  // Define the search query
-  let sql = `SELECT * FROM locations WHERE search_query=$1;`;
-  let values = [query];
-
-
-  // Make the query of the Database
-  client.query(sql, values)
+  let sqlInfo = {
+    searchQuery: request.query.data,
+    endpoint:'location'
+  }
+  
+  getDataFromDB(sqlInfo)
     .then(result => {
       // Did the DB return any info?
       if (result.rowCount > 0) {
@@ -109,72 +133,55 @@ function searchToLatLong(request, response) {
           .then(result => {
             if (!result.body.results.length) { throw 'NO DATA'; }
             else {
-              let location = new Location(query, result.body.results[0]);
+              let location = new Location(sqlInfo.searchQuery, result.body.results[0]);
 
-              let newSQL = `INSERT INTO locations (search_query, formatted_address, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING ID;`;
-              let newValues = Object.values(location);
-
-              client.query(newSQL, newValues)
+              sqlInfo.columns = Object.keys(location).join();
+              sqlInfo.values = Object.values(location);
+              saveToDB(sqlInfo)
                 .then(data => {
                   // attach the returning id to the location object
                   location.id = data.rows[0].id;
-                  console.log(location);
                   response.send(location);
                 });
             }
           })
           .catch(error => {handleError(error, response)
-            throw 'error!';
           });
       }
     });
 }
 
-
-function Location(query, location) {
-  this.search_query = query;
-  this.formatted_query = location.formatted_address;
-  this.latitude = location.geometry.location.lat;
-  this.longitude = location.geometry.location.lng;
-}
-
 //Dealing With Weather
 function searchForWeatherAndTime(request, response) {
-  let query = request.query.data.id;
-  let sql = `SELECT * FROM weathers WHERE location_id=$1;`;
-  let values= [query];
-
-  client.query(sql, values)
+  let sqlInfo = {
+    id:request.query.data.id,
+    endpoint:'weather'
+  }
+  getDataFromDB(sqlInfo)
+    .then(data => checkTimeOuts(sqlInfo,data))
     .then(result =>{
-      if (result.rowCount > 0){
-        console.log('weather from sql');
+      if (result){
         response.send(result.rows);
       } else {
         let url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
         superagent.get(url)
           .then(weatherResults => {
-            console.log('weather from api');
             if (!weatherResults.body.daily.data.length) {throw 'no data!';}
             else {
               const weatherSummaries = weatherResults.body.daily.data.map(day=>{
-                let daySummary = new Weather(day);
-                daySummary.id = query;
-                let newSql = `INSERT INTO weathers (time, forecast, location_id) VALUES ($1, $2, $3);`;
-                let newValues = Object.values(daySummary);
-                client.query(newSql, newValues);
-                return daySummary;
+                let summary = new Weather(day);
+                summary.id = sqlInfo.id;
+                sqlInfo.columns = Object.keys(summary).join();
+                sqlInfo.values = Object.values(summary);
+                saveToDB(sqlInfo);
+                return summary;
               });
               response.send(weatherSummaries);
             }
           })
+          .catch(error => handleError(error, response));
       }
     })
-    .catch(error => handleError(error, response));
-}
-
-function Weather(data) {
-  this.time = new Date(data.time * 1000).toString().slice(0, 15);
-  this.forecast = data.summary;
 }
 
 function searchForEvents(request, response) {
@@ -206,6 +213,19 @@ function searchForEvents(request, response) {
       }
     })
     .catch(err =>handleError(err, response))
+}
+
+//CONSTRUCTORS
+function Location(query, location) {
+  this.search_query = query;
+  this.formatted_query = location.formatted_address;
+  this.latitude = location.geometry.location.lat;
+  this.longitude = location.geometry.location.lng;
+}
+
+function Weather(data) {
+  this.time = new Date(data.time * 1000).toString().slice(0, 15);
+  this.forecast = data.summary;
 }
 
 function Event(data){
