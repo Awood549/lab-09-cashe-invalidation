@@ -29,13 +29,14 @@ app.get('/location', searchToLatLong)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
 
-app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
+app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`)); 
 
 // ERROR HANDLER
 function handleError(err, res) {
   console.error(err);
   if (res) res.status(500).send('Sorry, something went wrong');
 }
+
 
 
 function getDataFromDB (sqlInfo) {
@@ -81,6 +82,9 @@ function saveToDB(sqlInfo) {
   catch 
     (err){handleError(err)};
 }
+
+//Helper Functions
+//Dealing With Geo Data
 
 function searchToLatLong(request, response) {
   let query = request.query.data;
@@ -184,7 +188,6 @@ function searchForEvents(request, response) {
       }
       else {
         let url = `https://www.eventbriteapi.com/v3/events/search/?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
-        console.log(url);
         superagent.get(url)
           .then(eventResults => {
             if (!eventResults.body.events.length){throw 'error no data!';}
