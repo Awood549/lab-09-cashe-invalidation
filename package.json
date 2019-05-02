@@ -4,7 +4,8 @@
   "description": "sql with austin",
   "main": "server.js",
   "scripts": {
-    "test": "testing"
+    "test": "testing",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
