@@ -28,7 +28,7 @@ app.get('/location', searchToLatLong)
 app.get('/yelp', searchForYelp)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
-app.get('/movies', searchForMovies)
+app.get('/movie', searchForMovies)
 
 app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
 
@@ -229,24 +229,22 @@ function searchForYelp(request, response) {
       }
       else {
         const url = `https://api.yelp.com/v3/businesses/search?latitude=${request.query.data.latitude}&longitude=${request.query.data.longitude}`;
-
-        console.log('the end');
         superagent(url)
           .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
           .then(yelpResults => {
-              if (!yelpResults.body.businesses.length) { throw 'error no data'; }
-              else {
-                let yelpReviews = yelpResults.body.businesses.map(element => {
-                  let review = new Yelp(element);
-                  review.location_id = sqlInfo.id;
-                  sqlInfo.columns = Object.keys(review).join();
-                  sqlInfo.values = Object.values(review);
-                  saveToDB(sqlInfo);
-                  return review;
-                });
-                response.send(yelpReviews);
-              }
-            })
+            if (!yelpResults.body.businesses.length) { throw 'error no data'; }
+            else {
+              let yelpReviews = yelpResults.body.businesses.map(element => {
+                let review = new Yelp(element);
+                review.location_id = sqlInfo.id;
+                sqlInfo.columns = Object.keys(review).join();
+                sqlInfo.values = Object.values(review);
+                saveToDB(sqlInfo);
+                return review;
+              });
+              response.send(yelpReviews);
+            }
+          })
           .catch(err => handleError(err, response))
       }
     })
@@ -264,8 +262,7 @@ function searchForMovies(request, response) {
         response.send(results.rows)
       }
       else {
-        let url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${request.query.data.search_query}
-        `
+        const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${request.query.data.search_query}`
         superagent(url)
           .then(movieData => {
             if (!movieData.body.results.length) { throw 'error no data'; }
