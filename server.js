@@ -234,15 +234,17 @@ function searchForYelp(request, response) {
         superagent(url)
           .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
           .then(yelpResults => {
-            if (!yelpResults.body.businesses.length) { throw 'error no data'; }
-            else {
+ {
+
+            if(!yelpResults.body.businesses.length){throw 'error no data';}
+            else{
               let yelpReviews = yelpResults.body.businesses.map(element => {
                 let review = new Yelp(element);
                 review.location_id = sqlInfo.id;
                 sqlInfo.columns = Object.keys(review).join();
                 sqlInfo.values = Object.values(review);
                 saveToDB(sqlInfo);
-                return review
+                return review;
               });
               response.send(yelpReviews);
             }
