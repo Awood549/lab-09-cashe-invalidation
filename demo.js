@@ -83,26 +83,12 @@ function saveDataToDB(sqlInfo) {
   try { return client.query(sql, sqlInfo.values); }
   catch (err) { handleError(err); }
 }
-
-// CACHE INVALIDATION:
-
-// 1.	Get data from the DB
-// 2.	Check to see if the data is expired
-// a.	Expired => get new data from API, Save to DB, return
-// b.	Good => return existing data
-
-// Establish the length of time to keep data for each resource
-// NOTE: the names are singular so they can be dynamically used
-// The weather timeout MUST be 15 seconds for this lab. You can change
-// The others as you see fit... or not.
-
-// Check to see if the data is still valid
 function checkTimeouts(sqlInfo, sqlData) {
 
   const timeouts = {
     weather: 15 * 1000, // 15-seconds
     yelp: 24 * 1000 * 60 * 60, // 24-Hours
-    movie: 30 * 1000 * 60 * 60 * 24, // 30-Days
+    movie: 30 * 1000 *60 * 60 * 24, // 30-Days
     event: 6 * 1000 * 60 * 60, // 6-Hours
     trail: 7 * 1000 * 60 * 60 * 24 // 7-Days
   };

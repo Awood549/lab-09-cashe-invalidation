@@ -24,10 +24,11 @@ client.connect();
 client.on('error',error => console.log(error));
 
 //API Routes
-// app.get('/location', searchToLatLong)
 app.get('/location', searchToLatLong)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
+// app.get('/movie',searchForMovies)
+app.get('/yelp', searchForYelp)
 
 app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
 
@@ -45,8 +46,7 @@ function getDataFromDB (sqlInfo) {
   if (sqlInfo.searchQuery) {
     condition = 'search_query';
     values = [sqlInfo.searchQuery];
-  }
-  else {
+  } else {
     condition = 'location_id';
     values = [sqlInfo.id];
   }
@@ -69,7 +69,7 @@ function saveToDB(sqlInfo) {
   let sql = '';
   if (sqlInfo.searchQuery) {
     //location
-    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams}) RETURNING ID;`; 
+    sql = `INSERT INTO ${sqlInfo.endpoint}s (${sqlInfo.columns}) VALUES (${sqlParams}) RETURNING ID;`;
   }
   else {
     // all other endspoints
@@ -101,12 +101,12 @@ function checkTimeOuts(sqlInfo,sqlData){//Follow the trail, where does sqlData c
 
     if(ageOfResults > timeouts[sqlInfo.endpoint]) {
       let sql = ` DELETE FROM ${sqlInfo.endpoint}s WHERE location_id=$1;`;
-      let values = [sqlInfo];
+      let values = [sqlInfo.id];
       client.query(sql,values)
         .then(() => { return null; })
         .catch(err => handleError(err));
     }
-    else{return sqlData; }
+    else { return sqlData; }
   }
 }
 
@@ -118,12 +118,10 @@ function searchToLatLong(request, response) {
     searchQuery: request.query.data,
     endpoint:'location'
   }
-  
   getDataFromDB(sqlInfo)
     .then(result => {
       // Did the DB return any info?
       if (result.rowCount > 0) {
-        console.log(result.rows[0]);
         response.send(result.rows[0]);
       } else {
         // otherwise go get the data from the API
@@ -134,7 +132,6 @@ function searchToLatLong(request, response) {
             if (!result.body.results.length) { throw 'NO DATA'; }
             else {
               let location = new Location(sqlInfo.searchQuery, result.body.results[0]);
-
               sqlInfo.columns = Object.keys(location).join();
               sqlInfo.values = Object.values(location);
               saveToDB(sqlInfo)
@@ -154,11 +151,11 @@ function searchToLatLong(request, response) {
 //Dealing With Weather
 function searchForWeatherAndTime(request, response) {
   let sqlInfo = {
-    id:request.query.data.id,
+    id: request.query.data.id,
     endpoint:'weather'
   }
   getDataFromDB(sqlInfo)
-    .then(data => checkTimeOuts(sqlInfo,data))
+    .then(data => checkTimeOuts(sqlInfo, data))
     .then(result =>{
       if (result){
         response.send(result.rows);
@@ -170,7 +167,7 @@ function searchForWeatherAndTime(request, response) {
             else {
               const weatherSummaries = weatherResults.body.daily.data.map(day=>{
                 let summary = new Weather(day);
-                summary.id = sqlInfo.id;
+                summary.location_id = sqlInfo.id;
                 sqlInfo.columns = Object.keys(summary).join();
                 sqlInfo.values = Object.values(summary);
                 saveToDB(sqlInfo);
@@ -185,37 +182,99 @@ function searchForWeatherAndTime(request, response) {
 }
 
 function searchForEvents(request, response) {
-  let query = request.query.data.id;
-  let sql = `SELECT * FROM events WHERE event_id = $1;`;
-  let eventValues = [query];
-  client.query(sql, eventValues)
-    .then(results => {
-      if (results.rowCount > 0) {
-        response.send(results.rows);
+  let sqlInfo = {
+    id: request.query.data.id,
+    endpoint: 'event'
+  }
+  getDataFromDB(sqlInfo)
+    .then(data => checkTimeOuts(sqlInfo,data))
+    .then(result => {
+      if (result) {
+        response.send(result.rows);
       }
       else {
-        let url = `https://www.eventbriteapi.com/v3/events/search/?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
+        const url = `https://www.eventbriteapi.com/v3/events/search/?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
         superagent.get(url)
           .then(eventResults => {
             if (!eventResults.body.events.length){throw 'error no data!';}
             else {
               let eventsSummaries = eventResults.body.events.map(event => {
                 let eventSummary = new Event(event);
-                eventSummary.id = query;
-                let newSql = `INSERT INTO events(url, name, events_date, summary, event_id) VALUES ($1, $2, $3, $4, $5);`;
-                let newValues = Object.values(eventSummary);
-                client.query(newSql, newValues);
+                eventSummary.location_id = sqlInfo.id;
+                sqlInfo.columns = Object.keys(eventSummary).join();
+                sqlInfo.values = Object.values(eventSummary);
+                saveToDB(sqlInfo);
                 return eventSummary;
               });
               response.send(eventsSummaries);
             }
-          });
+          })
+          .catch(err => handleError(err, response))
       }
     })
-    .catch(err =>handleError(err, response))
 }
 
+function searchForYelp(request, response){
+  let sqlInfo = {
+    id: request.query.data.id,
+    endpoint: 'yelp'
+  }
+  getDataFromDB(sqlInfo)
+    .then(data => checkTimeOuts(sqlInfo,data))
+    .then(result => {
+      if(result) {
+        response.send(result.rows);
+      }
+      else{
+        const url = `https://api.yelp.com/v3/businesses/search?latitude=${request.query.data.latitude}&longitude=${request.query.data.longitude}`;
+        superagent(url)
+          .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+          .then(yelpResults => {
+            console.log('******************************************************************************************************************************************************************************************',yelpResults.body);
+            if(!yelpResults.body.businesses.length){throw 'error no data';}
+            else{
+              let yelpReviews = yelpResults.body.businesses.map(element => {
+                let review = new Yelp(element);
+                yelpReviews.location_id = sqlInfo.id;
+                sqlInfo.columns = Object.keys(review).join();
+                sqlInfo.values = Object.values(review);
+                saveToDB(sqlInfo);
+                return review
+              });
+              response.send(yelpReviews);
+            }
+          })
+          .catch(err => handleError(err,response))
+      }
+    })
+}
+
+// function searchForMovies(request, response){
+//   let sqlInfo = {
+//     id = request.query.data.id,
+//     endpoint: 'movie'
+//   }
+//   getDataFromDB(sqlInfo)
+//   .then(data => checkTimeOuts(sqlInfo,data))
+//   .then(result => {
+//     if(result){
+//       response.send(result.rows);
+//     }
+//     else{
+//       const url = `https://api.yelp.com/v3/businesses/search?latitude=${request.query.data.latitude}&longitude=${request.query.data.longitude}`;
+//       superagent(url)
+//       .set(`Authorization, Bearer ${process.env.YELP_API_KEY}`)
+//       .then(movieResults => {
+//         if(movieResults.body.events.length){throw 'error no data!';}
+//         else{
+//         }
+//       })
+//   }
+//   })
+// })
+
 //CONSTRUCTORS
+
 function Location(query, location) {
   this.search_query = query;
   this.formatted_query = location.formatted_address;
@@ -226,6 +285,7 @@ function Location(query, location) {
 function Weather(data) {
   this.time = new Date(data.time * 1000).toString().slice(0, 15);
   this.forecast = data.summary;
+  this.created_at = Date.now();
 }
 
 function Event(data){
@@ -233,4 +293,13 @@ function Event(data){
   this.name = data.name.text;
   this.events_date = data.start.local;
   this.summary = data.summary;
+  this.created_at = Date.now();
+}
+function Yelp(data){
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
+  this.created_at = Date.now();
 }
