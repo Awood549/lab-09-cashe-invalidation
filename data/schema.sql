@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS locations;
 CREATE TABLE locations (
   id SERIAL PRIMARY KEY,
   search_query VARCHAR(255),
-  formatted_address VARCHAR(255),
+  formatted_query VARCHAR(255),
   latitude NUMERIC(10,7),
   longitude NUMERIC(10,7)
 );
@@ -29,6 +29,19 @@ CREATE TABLE events (
   name VARCHAR(255),
   events_date VARCHAR(255),
   summary VARCHAR(255),
-  event_id INTEGER NOT NULL,
-  FOREIGN KEY (event_id) REFERENCES locations (id)
-)
+  created_at VARCHAR(255),
+  location_id INTEGER NOT NULL,
+  FOREIGN KEY (location_id) REFERENCES locations (id)
+);
+
+CREATE TABLE yelps (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  image_url VARCHAR(255),
+  price VARCHAR(255),
+  rating VARCHAR(255),
+  url VARCHAR(255),
+  created_at VARCHAR(255),
+  location_id INTEGER NOT NULL,
+  FOREIGN KEY (location_id) REFERENCES locations (id)
+);
