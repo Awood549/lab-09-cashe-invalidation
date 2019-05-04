@@ -28,7 +28,7 @@ app.get('/location', searchToLatLong)
 app.get('/yelp', searchForYelp)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
-app.get('/movie', searchForMovies)
+app.get('/movies', searchForMovies)
 
 app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
 
@@ -273,12 +273,13 @@ function searchForMovies(request, response) {
                 sqlInfo.columns = Object.keys(aMovie).join();
                 sqlInfo.values = Object.values(aMovie);
                 saveToDB(sqlInfo);
+                console.log('MOVIE INFOOOOO', aMovie);
                 return aMovie;
-              })
+              });
               response.send(movieMap);
             }
           })
-          .catch(err => handleError(err));
+          .catch(err => handleError(err,response));
       }
     })
 
