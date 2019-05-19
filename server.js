@@ -96,8 +96,8 @@ function checkTimeOuts(sqlInfo, sqlData) {//Follow the trail, where does sqlData
     let ageOfResults = (Date.now() - sqlData.rows[0].created_at);
 
     //for debugging only
-    console.log(sqlInfo.endpoint, ' AGE:', ageOfResults);
-    console.log(sqlInfo.endpoint, ' Timeout:', timeouts[sqlInfo.endpoint]);
+    // console.log(sqlInfo.endpoint, ' AGE:', ageOfResults);
+    // console.log(sqlInfo.endpoint, ' Timeout:', timeouts[sqlInfo.endpoint]);
 
     if (ageOfResults > timeouts[sqlInfo.endpoint]) {
       let sql = ` DELETE FROM ${sqlInfo.endpoint}s WHERE location_id=$1;`;
