@@ -28,7 +28,7 @@ app.get('/location', searchToLatLong)
 app.get('/yelp', searchForYelp)
 app.get('/weather', searchForWeatherAndTime)
 app.get('/events', searchForEvents)
-app.get('/movie', searchForMovies)
+app.get('/movies', searchForMovies)
 
 app.listen(PORT, () => console.log(`Listen on Port NEW ${PORT}.`));
 
