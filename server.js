@@ -273,12 +273,13 @@ function searchForMovies(request, response) {
                 sqlInfo.columns = Object.keys(aMovie).join();
                 sqlInfo.values = Object.values(aMovie);
                 saveToDB(sqlInfo);
+                console.log('MOVIE INFOOOOO', aMovie);
                 return aMovie;
-              })
+              });
               response.send(movieMap);
             }
           })
-          .catch(err => handleError(err));
+          .catch(err => handleError(err,response));
       }
     })
 
